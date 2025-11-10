@@ -15,7 +15,7 @@ export async function createFile(args: {
   try {
     const resolvedPath = path.resolve(filePath);
     if (!resolvedPath.startsWith(process.cwd())) {
-      throw new Error('Access denied: path outside allowed directory');
+      throw new Error('Access denied');
     }
 
     await fs.writeFile(resolvedPath, content, 'utf8');
@@ -36,7 +36,7 @@ export async function createDirectory(args: {
   try {
     const resolvedPath = path.resolve(dirPath);
     if (!resolvedPath.startsWith(process.cwd())) {
-      throw new Error('Access denied: path outside allowed directory');
+      throw new Error('Access denied');
     }
 
     await fs.mkdir(resolvedPath, { recursive });
@@ -56,7 +56,7 @@ export async function deleteFile(args: {
   try {
     const resolvedPath = path.resolve(filePath);
     if (!resolvedPath.startsWith(process.cwd())) {
-      throw new Error('Access denied: path outside allowed directory');
+      throw new Error('Access denied');
     }
 
     await fs.unlink(resolvedPath);
@@ -76,7 +76,7 @@ export async function deleteDirectory(args: {
   try {
     const resolvedPath = path.resolve(dirPath);
     if (!resolvedPath.startsWith(process.cwd())) {
-      throw new Error('Access denied: path outside allowed directory');
+      throw new Error('Access denied');
     }
 
     await fs.rm(resolvedPath, { recursive: true, force: true });
@@ -97,9 +97,8 @@ export async function copyFile(args: {
   try {
     const resolvedSource = path.resolve(source);
     const resolvedDest = path.resolve(destination);
-
     if (!resolvedSource.startsWith(process.cwd()) || !resolvedDest.startsWith(process.cwd())) {
-      throw new Error('Access denied: path outside allowed directory');
+      throw new Error('Access denied');
     }
 
     await fs.copyFile(resolvedSource, resolvedDest);
@@ -120,9 +119,8 @@ export async function moveFile(args: {
   try {
     const resolvedSource = path.resolve(source);
     const resolvedDest = path.resolve(destination);
-
     if (!resolvedSource.startsWith(process.cwd()) || !resolvedDest.startsWith(process.cwd())) {
-      throw new Error('Access denied: path outside allowed directory');
+      throw new Error('Access denied');
     }
 
     await fs.rename(resolvedSource, resolvedDest);
@@ -142,7 +140,7 @@ export async function getFileInfo(args: {
   try {
     const resolvedPath = path.resolve(filePath);
     if (!resolvedPath.startsWith(process.cwd())) {
-      throw new Error('Access denied: path outside allowed directory');
+      throw new Error('Access denied');
     }
 
     const stats = await fs.stat(resolvedPath);
@@ -150,7 +148,6 @@ export async function getFileInfo(args: {
       size: stats.size,
       created: stats.birthtime,
       modified: stats.mtime,
-      accessed: stats.atime,
       isDirectory: stats.isDirectory(),
       isFile: stats.isFile(),
       permissions: stats.mode.toString(8),
@@ -173,11 +170,10 @@ export async function changePermissions(args: {
   try {
     const resolvedPath = path.resolve(filePath);
     if (!resolvedPath.startsWith(process.cwd())) {
-      throw new Error('Access denied: path outside allowed directory');
+      throw new Error('Access denied');
     }
 
-    const numericMode = parseInt(mode, 8);
-    await fs.chmod(resolvedPath, numericMode);
+    await fs.chmod(resolvedPath, parseInt(mode, 8));
     return {
       content: [{ type: 'text', text: 'Permissions changed successfully' }]
     };
@@ -196,35 +192,17 @@ export async function searchFiles(args: {
   try {
     const resolvedPath = path.resolve(dirPath);
     if (!resolvedPath.startsWith(process.cwd())) {
-      throw new Error('Access denied: path outside allowed directory');
+      throw new Error('Access denied');
     }
 
-    // Simple glob-like search (basic implementation)
-    const results: string[] = [];
+    const { stdout } = await execAsync(
+      `find ${resolvedPath} ${recursive ? '' : '-maxdepth 1'} -name "${pattern}"`,
+      { timeout: 10000 }
+    );
 
-    async function search(dir: string) {
-      const items = await fs.readdir(dir, { withFileTypes: true });
-      for (const item of items) {
-        const fullPath = path.join(dir, item.name);
-        if (item.isDirectory() && recursive) {
-          await search(fullPath);
-        } else if (item.isFile()) {
-          // Simple pattern matching
-          if (pattern.includes('*')) {
-            const regex = new RegExp(pattern.replace(/\*/g, '.*'));
-            if (regex.test(item.name)) {
-              results.push(fullPath);
-            }
-          } else if (item.name.includes(pattern)) {
-            results.push(fullPath);
-          }
-        }
-      }
-    }
-
-    await search(resolvedPath);
+    const files = stdout.trim().split('\n').filter(Boolean);
     return {
-      content: [{ type: 'text', text: JSON.stringify(results, null, 2) }]
+      content: [{ type: 'text', text: JSON.stringify(files, null, 2) }]
     };
   } catch (error: any) {
     throw new Error(`Failed to search files: ${error.message}`);
@@ -241,22 +219,22 @@ export async function compressFile(args: {
   try {
     const resolvedSource = path.resolve(source);
     const resolvedDest = path.resolve(destination);
-
     if (!resolvedSource.startsWith(process.cwd()) || !resolvedDest.startsWith(process.cwd())) {
-      throw new Error('Access denied: path outside allowed directory');
+      throw new Error('Access denied');
     }
 
-    // Use system commands for compression
-    let command: string;
+    let command;
     if (format === 'zip') {
       command = `zip -r "${resolvedDest}" "${resolvedSource}"`;
     } else if (format === 'tar') {
-      command = `tar -czf "${resolvedDest}.tar.gz" -C "${path.dirname(resolvedSource)}" "${path.basename(resolvedSource)}"`;
+      command = `tar -cf "${resolvedDest}" "${resolvedSource}"`;
+    } else if (format === 'gz') {
+      command = `tar -czf "${resolvedDest}" "${resolvedSource}"`;
     } else {
-      throw new Error(`Unsupported format: ${format}`);
+      throw new Error('Unsupported format');
     }
 
-    await execAsync(command);
+    await execAsync(command, { timeout: 60000 });
     return {
       content: [{ type: 'text', text: 'File compressed successfully' }]
     };
@@ -274,22 +252,23 @@ export async function extractFile(args: {
   try {
     const resolvedSource = path.resolve(source);
     const resolvedDest = path.resolve(destination);
-
     if (!resolvedSource.startsWith(process.cwd()) || !resolvedDest.startsWith(process.cwd())) {
-      throw new Error('Access denied: path outside allowed directory');
+      throw new Error('Access denied');
     }
 
-    // Use system commands for extraction
-    let command: string;
-    if (resolvedSource.endsWith('.zip')) {
+    const ext = path.extname(resolvedSource);
+    let command;
+    if (ext === '.zip') {
       command = `unzip "${resolvedSource}" -d "${resolvedDest}"`;
-    } else if (resolvedSource.endsWith('.tar.gz') || resolvedSource.endsWith('.tgz')) {
+    } else if (ext === '.tar') {
+      command = `tar -xf "${resolvedSource}" -C "${resolvedDest}"`;
+    } else if (ext === '.gz' || ext === '.tgz') {
       command = `tar -xzf "${resolvedSource}" -C "${resolvedDest}"`;
     } else {
       throw new Error('Unsupported archive format');
     }
 
-    await execAsync(command);
+    await execAsync(command, { timeout: 60000 });
     return {
       content: [{ type: 'text', text: 'File extracted successfully' }]
     };
@@ -307,7 +286,7 @@ export async function calculateHash(args: {
   try {
     const resolvedPath = path.resolve(filePath);
     if (!resolvedPath.startsWith(process.cwd())) {
-      throw new Error('Access denied: path outside allowed directory');
+      throw new Error('Access denied');
     }
 
     const fileBuffer = await fs.readFile(resolvedPath);
