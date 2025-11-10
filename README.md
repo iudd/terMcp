@@ -59,7 +59,7 @@ terMcp/
 │   ├── server.ts          # 主服务器文件
 │   ├── tools/             # 工具实现
 │   │   ├── command.ts     # 命令执行工具
-│   │   ├── file.ts        # 文件操作工具
+│   │   ├── file.ts        # 基础文件操作工具
 │   │   ├── filesystem.ts  # 扩展文件管理工具
 │   │   └── system.ts      # 系统信息工具
 │   ├── utils/             # 工具函数
@@ -135,6 +135,23 @@ server.setRequestHandler('tools/call', async (request) => {
 - 集成测试：MCP Inspector
 - 打包：npm run build
 - 运行：npm start
+
+## 文件系统管理范围
+
+TerMCP 的文件系统操作**仅限于当前工作目录及其子目录**，以确保安全：
+
+- **允许路径**：所有路径都相对于 `process.cwd()`（服务器启动时的当前目录）
+- **禁止访问**：上级目录、系统文件、其他用户目录
+- **设置目录**：启动前可以通过 `cd` 命令或环境变量设置工作目录
+
+示例：
+```bash
+# 设置工作目录为 /home/user/projects
+cd /home/user/projects
+npm start
+```
+
+这样可以管理 `/home/user/projects` 及其子目录中的文件。
 
 ## API 参考
 
