@@ -13,8 +13,6 @@ const server = new Server(
   {
     capabilities: {
       tools: { listChanged: true },
-      resources: {},
-      logging: {},
     },
   },
 );
@@ -67,7 +65,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
   } catch (error) {
     return {
-      content: [{ type: 'text', text: `Error: ${error.message}` }],
+      content: [{ type: 'text', text: `Error: ${(error as Error).message}` }],
       isError: true,
     };
   }
@@ -172,15 +170,15 @@ async function main() {
     app.use(express.json());
 
     // MCP SSE endpoint
-    const sseTransport = new SSEServerTransport('/sse', server);
+    const sseTransport = new SSEServerTransport(server, '/sse');
     app.get('/sse', async (req, res) => {
-      await sseTransport.handleRequest(req, res);
+      await sseTransport.handle(req, res);
     });
 
     // MCP HTTP POST endpoint for messages
     app.post('/mcp', async (req, res) => {
       try {
-        const response = await sseTransport.handleMessage(req.body);
+        const response = await server.processRequest(req.body);
         res.json(response);
       } catch (error: any) {
         res.status(500).json({ error: error.message });
