@@ -1,5 +1,6 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { registerTools } from './tools/index.js';
 
@@ -160,9 +161,22 @@ async function handleCalculateHash(args: any) {
 
 // Start the server
 async function main() {
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
-  console.error('TerMCP server started');
+  const transportType = process.env.TRANSPORT || 'stdio';
+
+  if (transportType === 'sse') {
+    // SSE transport for HTTP streaming
+    const port = parseInt(process.env.PORT || '3000');
+    const transport = new SSEServerTransport('/sse', server);
+    // Note: SSE transport requires an HTTP server, this is simplified
+    // In production, you'd use express or similar
+    console.error('SSE transport not fully implemented in this version. Use stdio for now.');
+    process.exit(1);
+  } else {
+    // Default stdio transport
+    const transport = new StdioServerTransport();
+    await server.connect(transport);
+    console.error('TerMCP server started with stdio transport');
+  }
 }
 
 main().catch((error) => {
