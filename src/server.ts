@@ -2,6 +2,7 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import express from 'express';
 import { registerTools } from './tools/index.js';
 
 const server = new Server(
@@ -165,12 +166,32 @@ async function main() {
 
   if (transportType === 'sse') {
     // SSE transport for HTTP streaming
+    const app = express();
     const port = parseInt(process.env.PORT || '3000');
-    const transport = new SSEServerTransport('/sse', server);
-    // Note: SSE transport requires an HTTP server, this is simplified
-    // In production, you'd use express or similar
-    console.error('SSE transport not fully implemented in this version. Use stdio for now.');
-    process.exit(1);
+
+    app.use(express.json());
+
+    // MCP SSE endpoint
+    const sseTransport = new SSEServerTransport('/sse', server);
+    app.get('/sse', async (req, res) => {
+      await sseTransport.handleRequest(req, res);
+    });
+
+    // MCP HTTP POST endpoint for messages
+    app.post('/mcp', async (req, res) => {
+      try {
+        const response = await sseTransport.handleMessage(req.body);
+        res.json(response);
+      } catch (error: any) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    app.listen(port, () => {
+      console.error(`TerMCP server started with SSE transport on port ${port}`);
+      console.error(`SSE endpoint: http://localhost:${port}/sse`);
+      console.error(`Message endpoint: http://localhost:${port}/mcp`);
+    });
   } else {
     // Default stdio transport
     const transport = new StdioServerTransport();
