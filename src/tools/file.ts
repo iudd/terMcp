@@ -14,7 +14,7 @@ export async function readFile(args: {
       throw new Error('Access denied: path outside allowed directory');
     }
 
-    const content = await fs.readFile(resolvedPath, encoding);
+    const content = await fs.readFile(resolvedPath, { encoding });
     return {
       content: [{ type: 'text', text: content }]
     };
@@ -38,9 +38,9 @@ export async function writeFile(args: {
     }
 
     if (append) {
-      await fs.appendFile(resolvedPath, content, encoding);
+      await fs.appendFile(resolvedPath, content, { encoding });
     } else {
-      await fs.writeFile(resolvedPath, content, encoding);
+      await fs.writeFile(resolvedPath, content, { encoding });
     }
 
     return {
