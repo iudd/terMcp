@@ -41,19 +41,6 @@ async function main() {
       // Send initial connection message
       res.write('data: {"type": "connection", "data": "connected"}\n\n');
 
-      // Handle MCP messages via POST
-      const messageHandler = async (message: any) => {
-        try {
-          const response = await server.processRequest(message);
-          res.write(`data: ${JSON.stringify(response)}\n\n`);
-        } catch (error: any) {
-          res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
-        }
-      };
-
-      // Store handler for POST requests
-      (req as any).sseHandler = messageHandler;
-
       req.on('close', () => {
         // Cleanup if needed
       });
@@ -62,10 +49,34 @@ async function main() {
     // POST endpoint for sending messages
     app.post('/mcp', async (req, res) => {
       try {
-        const response = await server.processRequest(req.body);
-        res.json(response);
+        // Manual JSON-RPC handling
+        const { id, method, params } = req.body;
+
+        let result;
+        if (method === 'tools/list') {
+          result = await server.listTools();
+        } else if (method === 'tools/call') {
+          // Use the tool call handler
+          const toolCall = {
+            method: 'tools/call',
+            params: { name: params.name, arguments: params.arguments }
+          };
+          result = await server.processToolCall(toolCall);
+        } else {
+          throw new Error(`Unknown method: ${method}`);
+        }
+
+        res.json({
+          jsonrpc: '2.0',
+          id,
+          result
+        });
       } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({
+          jsonrpc: '2.0',
+          id: req.body.id,
+          error: { code: -32000, message: error.message }
+        });
       }
     });
 
