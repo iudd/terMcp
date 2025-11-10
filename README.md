@@ -60,6 +60,7 @@ terMcp/
 │   ├── tools/             # 工具实现
 │   │   ├── command.ts     # 命令执行工具
 │   │   ├── file.ts        # 文件操作工具
+│   │   ├── filesystem.ts  # 扩展文件管理工具
 │   │   └── system.ts      # 系统信息工具
 │   ├── utils/             # 工具函数
 │   └── types/             # 类型定义
@@ -139,11 +140,26 @@ server.setRequestHandler('tools/call', async (request) => {
 
 ### 工具列表
 
+#### 基础工具
 - `execute_command`：执行终端命令
 - `read_file`：读取文件内容
 - `write_file`：写入文件
 - `list_directory`：列出目录
 - `get_system_info`：获取系统信息
+
+#### 文件管理工具（扩展）
+- `create_file`：创建新文件
+- `create_directory`：创建新目录
+- `delete_file`：删除文件
+- `delete_directory`：删除目录（递归）
+- `copy_file`：复制文件
+- `move_file`：移动/重命名文件
+- `get_file_info`：获取文件详细信息（大小、权限、修改时间等）
+- `change_permissions`：修改文件权限
+- `search_files`：在目录中搜索文件（支持通配符和正则）
+- `compress_file`：压缩文件/目录
+- `extract_file`：解压文件
+- `calculate_hash`：计算文件哈希值（MD5/SHA256）
 
 ### 错误处理
 
